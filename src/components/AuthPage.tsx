@@ -32,10 +32,9 @@ export function AuthPage() {
           throw new Error('Nome inválido');
         }
         await updateProfile(userCredential.user, { displayName: trimmedName });
-await auth.currentUser?.reload();
-
-navigate('/connect');
-return;
+        await auth.currentUser?.reload();
+        navigate('/connect');
+        return;
       }
       navigate('/connect');
     } catch (err: any) {
