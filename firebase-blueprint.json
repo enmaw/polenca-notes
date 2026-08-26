@@ -1,0 +1,34 @@
+{
+  "rules": "firestore.rules",
+  "collections": {
+    "casais": {
+      "schema": {
+        "membros": ["string"],
+        "codigoConvite": "string",
+        "criadoEm": "timestamp"
+      }
+    },
+    "notas": {
+      "schema": {
+        "casalId": "string",
+        "autorId": "string",
+        "autorNome": "string",
+        "texto": "string",
+        "humor": "string",
+        "fotoUrl": "string",
+        "reacoes": "map",
+        "criadoEm": "timestamp",
+        "editadoEm": "timestamp",
+        "privada": "boolean"
+      }
+    },
+    "status": {
+      "schema": {
+        "casalId": "string",
+        "texto": "string",
+        "emoji": "string",
+        "atualizadoEm": "timestamp"
+      }
+    }
+  }
+}

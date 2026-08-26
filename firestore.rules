@@ -1,0 +1,125 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getCasal(casalId) {
+      return get(/databases/$(database)/documents/casais/$(casalId));
+    }
+
+    function isMemberOfCasal(casalId) {
+      return isAuthenticated() && request.auth.uid in getCasal(casalId).data.membros;
+    }
+
+    match /casais/{casalId} {
+      allow get: if isAuthenticated() && (request.auth.uid in resource.data.membros || resource.data.codigoConvite == casalId);
+      allow list: if isAuthenticated() && request.auth.uid in resource.data.membros;
+
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasOnly(['membros', 'nomes', 'codigoConvite', 'criadoEm'])
+        && request.resource.data.membros.size() == 1
+        && request.resource.data.membros[0] == request.auth.uid
+        && request.resource.data.nomes.keys().hasOnly([request.auth.uid])
+        && request.resource.data.nomes[request.auth.uid] is string
+        && request.resource.data.nomes[request.auth.uid].size() <= 80
+        && request.resource.data.codigoConvite == casalId
+        && request.resource.data.criadoEm is number;
+
+      allow update: if isAuthenticated()
+        && resource.data.membros.size() == 1
+        && resource.data.membros[0] != request.auth.uid
+        && request.resource.data.membros.size() == 2
+        && request.resource.data.membros[0] == resource.data.membros[0]
+        && request.resource.data.membros[1] == request.auth.uid
+        && request.resource.data.nomes.keys().hasOnly(request.resource.data.membros)
+        && request.resource.data.nomes[request.auth.uid] is string
+        && request.resource.data.nomes[request.auth.uid].size() <= 80
+        && request.resource.data.codigoConvite == resource.data.codigoConvite
+        && request.resource.data.criadoEm == resource.data.criadoEm;
+
+      allow delete: if isAuthenticated()
+        && resource.data.membros.size() == 1
+        && resource.data.membros[0] == request.auth.uid;
+    }
+
+    match /notas/{notaId} {
+      allow read: if isMemberOfCasal(resource.data.casalId)
+        && (!resource.data.privada || resource.data.autorId == request.auth.uid);
+
+      allow create: if isMemberOfCasal(request.resource.data.casalId)
+        && request.resource.data.autorId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'casalId', 'autorId', 'autorNome', 'texto', 'humor', 'reacoes',
+          'criadoEm', 'editadoEm', 'privada'
+        ])
+        && request.resource.data.texto is string
+        && request.resource.data.texto.size() > 0
+        && request.resource.data.texto.size() <= 5000
+        && request.resource.data.autorNome is string
+        && request.resource.data.autorNome.size() <= 80
+        && request.resource.data.privada is bool
+        && request.resource.data.reacoes is map
+        && request.resource.data.reacoes.keys().hasOnly([request.auth.uid]);
+
+      allow update: if isMemberOfCasal(resource.data.casalId) && (
+        (
+          request.auth.uid == resource.data.autorId
+          && request.resource.data.casalId == resource.data.casalId
+          && request.resource.data.autorId == resource.data.autorId
+          && request.resource.data.privada == resource.data.privada
+          && request.resource.data.autorNome == resource.data.autorNome
+          && request.resource.data.reacoes == resource.data.reacoes
+          && request.resource.data.criadoEm == resource.data.criadoEm
+          && request.resource.data.keys().hasOnly([
+            'casalId', 'autorId', 'autorNome', 'texto', 'humor', 'reacoes',
+            'criadoEm', 'editadoEm', 'privada'
+          ])
+          && request.resource.data.texto is string
+          && request.resource.data.texto.size() > 0
+          && request.resource.data.texto.size() <= 5000
+        )
+        ||
+        (
+          request.auth.uid != resource.data.autorId
+          && request.resource.data.casalId == resource.data.casalId
+          && request.resource.data.autorId == resource.data.autorId
+          && request.resource.data.privada == resource.data.privada
+          && request.resource.data.criadoEm == resource.data.criadoEm
+          && request.resource.data.texto == resource.data.texto
+          && request.resource.data.reacoes.diff(resource.data.reacoes).affectedKeys().hasOnly([request.auth.uid])
+        )
+      );
+
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.autorId;
+    }
+
+    match /status/{uid} {
+      allow read: if isAuthenticated() && isMemberOfCasal(resource.data.casalId);
+
+      allow create: if isAuthenticated()
+        && request.auth.uid == uid
+        && isMemberOfCasal(request.resource.data.casalId)
+        && request.resource.data.keys().hasOnly(['casalId', 'texto', 'emoji', 'atualizadoEm'])
+        && request.resource.data.texto is string
+        && request.resource.data.texto.size() <= 30
+        && request.resource.data.emoji is string
+        && request.resource.data.emoji.size() <= 8
+        && request.resource.data.atualizadoEm is number;
+
+      allow update: if isAuthenticated()
+        && request.auth.uid == uid
+        && isMemberOfCasal(resource.data.casalId)
+        && request.resource.data.casalId == resource.data.casalId
+        && request.resource.data.keys().hasOnly(['casalId', 'texto', 'emoji', 'atualizadoEm'])
+        && request.resource.data.texto is string
+        && request.resource.data.texto.size() <= 30
+        && request.resource.data.emoji is string
+        && request.resource.data.emoji.size() <= 8
+        && request.resource.data.atualizadoEm is number;
+
+      allow delete: if isAuthenticated() && request.auth.uid == uid;
+    }
+  }
+}
